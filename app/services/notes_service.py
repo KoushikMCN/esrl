@@ -1,6 +1,6 @@
 from typing import Dict, List
 import os
-import google.generativeai as genai
+from google import genai
 
 MODEL_NAME = "gemini-1.5-flash"
 
@@ -9,12 +9,11 @@ def _get_client():
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(MODEL_NAME)
+    return genai.Client(api_key=api_key)
 
 
 def generate_quick_notes(text: str) -> Dict:
-    model = _get_client()
+    client = _get_client()
     prompt = (
         "Create quick study notes from the text:\n"
         "1) 5 flashcards (Q/A)\n"
@@ -23,5 +22,8 @@ def generate_quick_notes(text: str) -> Dict:
         "4) 5 interview questions\n\n"
         f"Text:\n{text[:4000]}"
     )
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=prompt
+    )
     return {"notes": response.text}

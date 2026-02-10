@@ -9,5 +9,5 @@ transformers
 sentence-transformers
 chromadb
 spacy
-google-generativeai
+google-genai
 #jnbwrikhfbnke

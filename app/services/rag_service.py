@@ -1,6 +1,6 @@
 from typing import Dict, List
 import os
-import google.generativeai as genai
+from google import genai
 
 from app.services.embedding_service import query_similar
 
@@ -11,8 +11,7 @@ def _get_client():
     api_key = os.getenv("GEMINI_API_KEY", "")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set")
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel(MODEL_NAME)
+    return genai.Client(api_key=api_key)
 
 
 def retrieve_context(query: str, top_k: int = 5) -> Dict:
@@ -20,7 +19,7 @@ def retrieve_context(query: str, top_k: int = 5) -> Dict:
 
 
 def generate_answer(query: str, context: Dict) -> str:
-    model = _get_client()
+    client = _get_client()
     documents: List[str] = context.get("documents", [[]])[0]
     prompt = (
         "Answer the question using only the context. If unsure, say you do not know.\n\n"
@@ -29,5 +28,8 @@ def generate_answer(query: str, context: Dict) -> str:
         + "\n\nQuestion: "
         + query
     )
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model=MODEL_NAME,
+        contents=prompt
+    )
     return response.text

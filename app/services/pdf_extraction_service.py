@@ -16,13 +16,14 @@ os.makedirs(IMAGE_DIR, exist_ok=True)
 MIN_TEXT_THRESHOLD = 50
 
 
-def save_pdf(file) -> str:
+async def save_pdf(file) -> str:
     file_path = os.path.join(
         UPLOAD_DIR,
         f"{datetime.now().timestamp()}_{file.filename}"
     )
+    content = await file.read()
     with open(file_path, "wb") as f:
-        f.write(file)
+        f.write(content)
     return file_path
 
 
