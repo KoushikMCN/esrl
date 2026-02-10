@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+pymupdf
+python-multipart
+pytesseract
+pillow
+transformers
+sentence-transformers
+chromadb
+spacy
+google-generativeai
