@@ -2,7 +2,7 @@ from typing import Dict, List
 import os
 from google import genai
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-2.5-flash"
 
 
 def _get_client():
