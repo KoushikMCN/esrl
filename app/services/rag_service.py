@@ -18,6 +18,21 @@ def retrieve_context(query: str, top_k: int = 5) -> Dict:
     return query_similar(query, top_k=top_k)
 
 
+def _score_block(query_terms: List[str], doc: str, meta: Dict) -> int:
+    text = doc.lower()
+    score = 0
+    for term in query_terms:
+        if term in text:
+            score += 2
+    heading = (meta.get("heading") or "").lower()
+    for term in query_terms:
+        if term in heading:
+            score += 3
+    if meta.get("discourse_type") == "definition":
+        score += 2
+    return score
+
+
 def _build_context_blocks(query: str, context: Dict, max_items: int = 8) -> List[Tuple[str, Dict]]:
     documents: List[str] = (context.get("documents") or [[]])[0]
     metadatas: List[Dict] = (context.get("metadatas") or [[]])[0]
@@ -26,9 +41,8 @@ def _build_context_blocks(query: str, context: Dict, max_items: int = 8) -> List
     for doc, meta in zip(documents, metadatas):
         items.append((doc, meta or {}))
 
-    query_lower = query.lower()
-    if "define" in query_lower or "definition" in query_lower:
-        items.sort(key=lambda item: 0 if item[1].get("discourse_type") == "definition" else 1)
+    query_terms = [t for t in query.lower().split() if len(t) > 2]
+    items.sort(key=lambda item: _score_block(query_terms, item[0], item[1]), reverse=True)
 
     return items[:max_items]
 
@@ -52,7 +66,15 @@ def generate_answer(query: str, context: Dict) -> str:
     prompt = (
         "Answer the question using only the context. "
         "If the answer is not in the context, say 'Not found in the provided notes.' "
-        "Be concise and include the source numbers you used like [1][3].\n\n"
+        "Write the answer in Markdown with clear sections. "
+        "Use this structure when applicable:\n"
+        "- Title (single line)\n"
+        "- Intro (1-2 sentences)\n"
+        "- Definition (only if asked for a definition)\n"
+        "- Key Points (bullets)\n"
+        "- Examples (if present in context)\n"
+        "- Sources (cite like [1][3])\n\n"
+        "Keep it concise and include the source numbers you used like [1][3].\n\n"
         "Context:\n"
         + "\n\n".join(formatted_blocks)
         + "\n\nQuestion: "
