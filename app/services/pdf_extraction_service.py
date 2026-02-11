@@ -95,7 +95,8 @@ def extract_images_from_pdf(pdf_path: str, document_id: str) -> List[Dict]:
                 "id": f"{document_id}_image_{page_index}_{img_index}",
                 "path": image_path,
                 "page": page_index,
-                "type": "image"
+                "type": "image",
+                "document_id": document_id
             })
 
     return image_data

@@ -1,10 +1,10 @@
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import os
 from google import genai
 
 from app.services.embedding_service import query_similar
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-2.5-flash"
 
 
 def _get_client():
@@ -18,13 +18,43 @@ def retrieve_context(query: str, top_k: int = 5) -> Dict:
     return query_similar(query, top_k=top_k)
 
 
+def _build_context_blocks(query: str, context: Dict, max_items: int = 8) -> List[Tuple[str, Dict]]:
+    documents: List[str] = (context.get("documents") or [[]])[0]
+    metadatas: List[Dict] = (context.get("metadatas") or [[]])[0]
+    items: List[Tuple[str, Dict]] = []
+
+    for doc, meta in zip(documents, metadatas):
+        items.append((doc, meta or {}))
+
+    query_lower = query.lower()
+    if "define" in query_lower or "definition" in query_lower:
+        items.sort(key=lambda item: 0 if item[1].get("discourse_type") == "definition" else 1)
+
+    return items[:max_items]
+
+
 def generate_answer(query: str, context: Dict) -> str:
     client = _get_client()
-    documents: List[str] = context.get("documents", [[]])[0]
+    blocks = _build_context_blocks(query, context)
+    if not blocks:
+        return "Not found in the provided notes. Try rephrasing or upload more pages."
+
+    formatted_blocks = []
+    for index, (doc, meta) in enumerate(blocks, start=1):
+        heading = meta.get("heading") or "Source"
+        page = meta.get("page")
+        page_tag = f"page {page}" if page is not None else "page ?"
+        discourse = meta.get("discourse_type") or "unknown"
+        formatted_blocks.append(
+            f"[{index}] ({page_tag}, {heading}, {discourse})\n{doc}"
+        )
+
     prompt = (
-        "Answer the question using only the context. If unsure, say you do not know.\n\n"
+        "Answer the question using only the context. "
+        "If the answer is not in the context, say 'Not found in the provided notes.' "
+        "Be concise and include the source numbers you used like [1][3].\n\n"
         "Context:\n"
-        + "\n---\n".join(documents[:5])
+        + "\n\n".join(formatted_blocks)
         + "\n\nQuestion: "
         + query
     )

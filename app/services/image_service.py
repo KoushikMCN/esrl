@@ -1,5 +1,6 @@
 from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
+import pytesseract
 
 _processor = None
 _model = None
@@ -20,3 +21,8 @@ def generate_caption(image_path: str) -> str:
     out = model.generate(**inputs)
     caption = processor.decode(out[0], skip_special_tokens=True)
     return caption
+
+
+def extract_text(image_path: str) -> str:
+    image = Image.open(image_path).convert("RGB")
+    return pytesseract.image_to_string(image).strip()

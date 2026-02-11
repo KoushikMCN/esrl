@@ -3,7 +3,14 @@ from app.services.pdf_service import save_pdf, extract_text_from_pdf, extract_im
 from app.services.text_processing_service import clean_text, structure_pages
 from app.services.discourse_service import classify_discourse
 from app.services.chunk_service import chunk_sections
-from app.services.embedding_service import upsert_chunks, query_similar
+from app.services.embedding_service import (
+    upsert_chunks,
+    upsert_images,
+    query_similar,
+    query_images_for_document,
+    get_text_for_page
+)
+from app.services.image_service import generate_caption, extract_text
 from app.services.rag_service import generate_answer
 from app.services.notes_service import generate_quick_notes
 
@@ -30,6 +37,29 @@ async def upload_pdf(file: UploadFile = File(...)):
     upsert_chunks(chunks)
 
     images = extract_images_from_pdf(path, document_id)
+    if images:
+        image_chunks = []
+        for image in images:
+            try:
+                caption = generate_caption(image["path"])
+            except Exception:
+                caption = "Image"
+            try:
+                ocr_text = extract_text(image["path"])
+            except Exception:
+                ocr_text = ""
+            if ocr_text:
+                ocr_snippet = ocr_text[:400]
+                caption = f"{caption}. OCR: {ocr_snippet}"
+            image_chunks.append({
+                "id": image["id"],
+                "caption": caption,
+                "ocr": ocr_text,
+                "page": image.get("page"),
+                "document_id": image.get("document_id"),
+                "path": image.get("path")
+            })
+        upsert_images(image_chunks)
 
     return {
         "message": "PDF processed",
@@ -43,9 +73,34 @@ async def upload_pdf(file: UploadFile = File(...)):
 @app.post("/rag")
 async def rag_query(payload: dict):
     query = payload.get("query", "")
-    context = query_similar(query, top_k=5)
+    context = query_similar(query, top_k=8)
     answer = generate_answer(query, context)
-    return {"answer": answer, "context": context}
+    images = []
+    metadatas = (context.get("metadatas") or [[]])[0]
+    document_ids = [m.get("document_id") for m in metadatas if m]
+    if document_ids:
+        image_context = query_images_for_document(query, document_ids[0], limit=5)
+        image_docs = (image_context.get("documents") or [[]])[0]
+        image_metas = (image_context.get("metadatas") or [[]])[0]
+        for doc, meta in zip(image_docs, image_metas):
+            meta = meta or {}
+            context_snippet = ""
+            page = meta.get("page")
+            if page is not None:
+                page_context = get_text_for_page(document_ids[0], page, limit=1)
+                page_docs = page_context.get("documents") or []
+                page_docs = page_docs[0] if page_docs and isinstance(page_docs[0], list) else page_docs
+                if page_docs:
+                    context_snippet = page_docs[0][:400]
+            images.append({
+                "path": meta.get("path"),
+                "caption": meta.get("caption") or doc or "Image",
+                "ocr": meta.get("ocr") or "",
+                "context": context_snippet,
+                "page": meta.get("page"),
+                "document_id": meta.get("document_id")
+            })
+    return {"answer": answer, "context": context, "images": images}
 
 
 @app.post("/notes")

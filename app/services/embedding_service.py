@@ -71,7 +71,10 @@ def upsert_images(image_chunks: List[Dict]) -> None:
         {
             "page": chunk.get("page"),
             "type": "image",
-            "document_id": chunk.get("document_id")
+            "document_id": chunk.get("document_id"),
+            "path": chunk.get("path"),
+            "caption": chunk.get("caption"),
+            "ocr": chunk.get("ocr")
         }
         for chunk in image_chunks
     ]
@@ -91,5 +94,34 @@ def query_similar(text: str, top_k: int = 5) -> Dict:
     return collection.query(
         query_embeddings=[embedding],
         n_results=top_k,
-        include=["documents", "metadatas", "distances", "ids"]
+        include=["documents", "metadatas", "distances"]
+    )
+
+
+def get_images_for_document(document_id: str, limit: int = 5) -> Dict:
+    collection = get_chroma_collection()
+    return collection.get(
+        where={"$and": [{"document_id": document_id}, {"type": "image"}]},
+        limit=limit,
+        include=["documents", "metadatas"]
+    )
+
+
+def query_images_for_document(query: str, document_id: str, limit: int = 5) -> Dict:
+    collection = get_chroma_collection()
+    embedding = embed_texts([query])[0]
+    return collection.query(
+        query_embeddings=[embedding],
+        n_results=limit,
+        where={"$and": [{"document_id": document_id}, {"type": "image"}]},
+        include=["documents", "metadatas", "distances"]
+    )
+
+
+def get_text_for_page(document_id: str, page: int, limit: int = 1) -> Dict:
+    collection = get_chroma_collection()
+    return collection.get(
+        where={"$and": [{"document_id": document_id}, {"type": "text"}, {"page": page}]},
+        limit=limit,
+        include=["documents", "metadatas"]
     )
