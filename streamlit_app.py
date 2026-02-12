@@ -108,16 +108,15 @@ with col_right:
     notes_text = st.text_area("Text", height=200)
     if st.button("Generate Notes"):
         if not notes_text.strip():
-            st.warning("Enter some text.")
-        else:
-            with st.spinner("Generating notes..."):
-                try:
-                    response = requests.post(
-                        f"{backend_url}/notes",
-                        json={"text": notes_text},
-                        timeout=120,
-                    )
-                    response.raise_for_status()
-                    st.json(response.json())
-                except requests.RequestException as exc:
-                    st.error(f"Request failed: {exc}")
+            st.info("Using the most recently uploaded PDF.")
+        with st.spinner("Generating notes..."):
+            try:
+                response = requests.post(
+                    f"{backend_url}/notes",
+                    json={"text": notes_text},
+                    timeout=120,
+                )
+                response.raise_for_status()
+                st.json(response.json())
+            except requests.RequestException as exc:
+                st.error(f"Request failed: {exc}")

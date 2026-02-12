@@ -1,5 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
-from app.services.pdf_service import save_pdf, extract_text_from_pdf, extract_images_from_pdf, generate_document_id
+import os
+
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from app.services.pdf_service import (
+    save_pdf,
+    extract_text_from_pdf,
+    extract_images_from_pdf,
+    generate_document_id,
+    record_last_uploaded,
+    get_last_uploaded
+)
 from app.services.text_processing_service import clean_text, structure_pages
 from app.services.discourse_service import classify_discourse
 from app.services.chunk_service import chunk_sections
@@ -61,6 +70,8 @@ async def upload_pdf(file: UploadFile = File(...)):
             })
         upsert_images(image_chunks)
 
+    record_last_uploaded(path, document_id)
+
     return {
         "message": "PDF processed",
         "document_id": document_id,
@@ -105,6 +116,17 @@ async def rag_query(payload: dict):
 
 @app.post("/notes")
 async def notes_query(payload: dict):
-    text = payload.get("text", "")
+    text = (payload.get("text") or "").strip()
+    if not text:
+        last_uploaded = get_last_uploaded()
+        if not last_uploaded:
+            raise HTTPException(status_code=400, detail="No text provided and no uploaded PDF found.")
+
+        pdf_path = last_uploaded.get("path")
+        if not pdf_path or not os.path.exists(pdf_path):
+            raise HTTPException(status_code=400, detail="Last uploaded PDF not found.")
+
+        full_text, _ = extract_text_from_pdf(pdf_path)
+        text = clean_text(full_text)
     notes = generate_quick_notes(text)
     return notes

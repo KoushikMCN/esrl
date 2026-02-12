@@ -1,7 +1,8 @@
 import os
 import io
+import json
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import fitz
 from PIL import Image
@@ -9,9 +10,11 @@ import pytesseract
 
 UPLOAD_DIR = "storage/pdfs"
 IMAGE_DIR = "storage/images"
+LAST_UPLOADED_FILE = "storage/last_uploaded.json"
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(IMAGE_DIR, exist_ok=True)
+os.makedirs(os.path.dirname(LAST_UPLOADED_FILE), exist_ok=True)
 
 MIN_TEXT_THRESHOLD = 50
 
@@ -100,3 +103,29 @@ def extract_images_from_pdf(pdf_path: str, document_id: str) -> List[Dict]:
             })
 
     return image_data
+
+
+def record_last_uploaded(file_path: str, document_id: str) -> None:
+    data = {
+        "path": file_path,
+        "document_id": document_id,
+        "timestamp": datetime.now().timestamp()
+    }
+    with open(LAST_UPLOADED_FILE, "w", encoding="utf-8") as f:
+        f.write(json.dumps(data))
+
+
+def get_last_uploaded() -> Optional[Dict]:
+    if not os.path.exists(LAST_UPLOADED_FILE):
+        return None
+    try:
+        with open(LAST_UPLOADED_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+    if not data.get("path"):
+        return None
+    return data
