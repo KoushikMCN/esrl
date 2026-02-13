@@ -22,6 +22,7 @@ from app.services.embedding_service import (
 from app.services.image_service import generate_caption, extract_text
 from app.services.rag_service import generate_answer
 from app.services.notes_service import generate_quick_notes
+from app.services.summarizer_service import summarize_text_levels
 
 app = FastAPI()
 
@@ -130,3 +131,20 @@ async def notes_query(payload: dict):
         text = clean_text(full_text)
     notes = generate_quick_notes(text)
     return notes
+
+
+@app.post("/notes/summary")
+async def notes_summary(payload: dict):
+    text = (payload.get("text") or "").strip()
+    if not text:
+        last_uploaded = get_last_uploaded()
+        if not last_uploaded:
+            raise HTTPException(status_code=400, detail="No text provided and no uploaded PDF found.")
+
+        pdf_path = last_uploaded.get("path")
+        if not pdf_path or not os.path.exists(pdf_path):
+            raise HTTPException(status_code=400, detail="Last uploaded PDF not found.")
+
+        full_text, _ = extract_text_from_pdf(pdf_path)
+        text = clean_text(full_text)
+    return summarize_text_levels(text)
