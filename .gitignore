@@ -1,2 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 .env
-*/__pycache__/
+venv/
+.env/
+media/
+storage/
+.DS_Store
