@@ -23,6 +23,7 @@ from app.services.embedding_service import (
 from app.services.image_service import generate_caption, extract_text
 from app.services.rag_service import generate_answer
 from app.services.notes_service import generate_quick_notes
+from app.services.summarizer_service import summarize_text_levels
 from app.services.video_gen_service import generate_slide_plan, generate_voice, get_audio_duration, html_to_video, image_audio_to_video, normalize_chroma_images, render_slide_html, stitch_videos
 from dotenv import load_dotenv
 load_dotenv()
@@ -134,6 +135,23 @@ async def notes_query(payload: dict):
         text = clean_text(full_text)
     notes = generate_quick_notes(text)
     return notes
+
+
+@app.post("/notes/summary")
+async def notes_summary(payload: dict):
+    text = (payload.get("text") or "").strip()
+    if not text:
+        last_uploaded = get_last_uploaded()
+        if not last_uploaded:
+            raise HTTPException(status_code=400, detail="No text provided and no uploaded PDF found.")
+
+        pdf_path = last_uploaded.get("path")
+        if not pdf_path or not os.path.exists(pdf_path):
+            raise HTTPException(status_code=400, detail="Last uploaded PDF not found.")
+
+        full_text, _ = extract_text_from_pdf(pdf_path)
+        text = clean_text(full_text)
+    return summarize_text_levels(text)
 
 @app.post("/generate_video/{document_id}")
 async def generate_video(document_id: str):

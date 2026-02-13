@@ -13,6 +13,64 @@ backend_url = st.sidebar.text_input(
 
 st.divider()
 
+
+def render_notes(payload: dict) -> None:
+    if not isinstance(payload, dict):
+        st.write(payload)
+        return
+
+    if payload.get("notes"):
+        st.markdown("**Notes**")
+        st.write(payload.get("notes"))
+        return
+
+    flashcards = payload.get("flashcards") or []
+    cheat_sheet = payload.get("cheat_sheet") or ""
+    mcqs = payload.get("mcqs") or []
+    interview_questions = payload.get("interview_questions") or []
+
+    if flashcards:
+        with st.expander("Flashcards", expanded=True):
+            for idx, card in enumerate(flashcards, start=1):
+                question = card.get("question", "")
+                answer = card.get("answer", "")
+                st.markdown(f"**{idx}. {question}**")
+                st.write(answer)
+
+    if cheat_sheet:
+        with st.expander("Cheat Sheet", expanded=True):
+            st.markdown(cheat_sheet)
+
+    if mcqs:
+        with st.expander("MCQs", expanded=True):
+            for idx, mcq in enumerate(mcqs, start=1):
+                question = mcq.get("question", "")
+                options = mcq.get("options") or []
+                answer = mcq.get("answer", "")
+                st.markdown(f"**{idx}. {question}**")
+                for opt in options:
+                    st.markdown(f"- {opt}")
+                if answer:
+                    st.markdown(f"**Answer:** {answer}")
+
+    if interview_questions:
+        with st.expander("Interview Questions", expanded=True):
+            for idx, question in enumerate(interview_questions, start=1):
+                st.markdown(f"{idx}. {question}")
+
+
+def render_summary(payload: dict) -> None:
+    if not isinstance(payload, dict):
+        st.write(payload)
+        return
+
+    summary = payload.get("summary") or ""
+    if summary:
+        st.markdown("**Summary**")
+        st.markdown(summary)
+    else:
+        st.info("No summary returned.")
+
 with st.expander("Upload PDF", expanded=True):
     pdf_file = st.file_uploader("Choose a PDF", type=["pdf"])
     if st.button("Process PDF", type="primary"):
@@ -106,17 +164,40 @@ with col_left:
 with col_right:
     st.subheader("Quick Notes")
     notes_text = st.text_area("Text", height=200)
-    if st.button("Generate Notes"):
-        if not notes_text.strip():
-            st.info("Using the most recently uploaded PDF.")
-        with st.spinner("Generating notes..."):
-            try:
-                response = requests.post(
-                    f"{backend_url}/notes",
-                    json={"text": notes_text},
-                    timeout=120,
-                )
-                response.raise_for_status()
-                st.json(response.json())
-            except requests.RequestException as exc:
-                st.error(f"Request failed: {exc}")
+    notes_col, summary_col = st.columns(2)
+    with notes_col:
+        if st.button("Generate Notes"):
+            if not notes_text.strip():
+                st.info("Using the most recently uploaded PDF.")
+            with st.spinner("Generating notes..."):
+                try:
+                    response = requests.post(
+                        f"{backend_url}/notes",
+                        json={"text": notes_text},
+                        timeout=120,
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    render_notes(payload)
+                    with st.expander("Raw response"):
+                        st.json(payload)
+                except requests.RequestException as exc:
+                    st.error(f"Request failed: {exc}")
+    with summary_col:
+        if st.button("Summarize Notes"):
+            if not notes_text.strip():
+                st.info("Using the most recently uploaded PDF.")
+            with st.spinner("Summarizing notes..."):
+                try:
+                    response = requests.post(
+                        f"{backend_url}/notes/summary",
+                        json={"text": notes_text},
+                        timeout=120,
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
+                    render_summary(payload)
+                    with st.expander("Raw response"):
+                        st.json(payload)
+                except requests.RequestException as exc:
+                    st.error(f"Request failed: {exc}")
