@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from app.services.pdf_service import (
     save_pdf,
     extract_text_from_pdf,
@@ -29,6 +30,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def root():
